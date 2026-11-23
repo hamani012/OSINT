@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoOSINT | Automotive Spare Parts Intelligence Platform</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Automotive & OSINT Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono for OEM Part Numbers -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#151e2e',
+                            900: '#0f172a',
+                            950: '#090d16',
+                        },
+                        amber: {
+                            450: '#f59e0b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for industrial dark mode */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(71, 85, 105, 0.4);
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+        .pulse-dot::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 9999px;
+            background-color: #10b981;
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans antialiased min-h-screen flex flex-col selection:bg-amber-500 selection:text-slate-950">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between py-3 gap-3">
+                <!-- Brand Logo & Live Status -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 font-bold text-xl shadow-md shadow-amber-500/20">
+                            <i class="fa-solid fa-gears"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h1 class="text-lg font-bold tracking-tight text-white">AutoParts<span class="text-amber-400">OSINT</span></h1>
+                                <span class="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider bg-slate-800 text-amber-400 border border-amber-500/30 rounded-full">v2.4 Intel</span>
+                            </div>
+                            <p class="text-xs text-slate-400 hidden sm:block">Multi-Source Automotive Spare Parts Intelligence & Price Aggregator</p>
+                        </div>
+                    </div>
+
+                    <!-- Mobile Scraper Trigger -->
+                    <button onclick="simulateScraperRun()" class="md:hidden px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition shadow">
+                        <i class="fa-solid fa-satellite-dish"></i> Scrape
+                    </button>
+                </div>
+
+                <!-- Navigation Tabs & Global Actions -->
+                <div class="flex items-center justify-between md:justify-end gap-2 overflow-x-auto pb-1 md:pb-0">
+                    <nav class="flex space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800" aria-label="Tabs">
+                        <button onclick="switchTab('search')" id="tab-search" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg bg-slate-800 text-amber-400 shadow-sm transition flex items-center gap-2 whitespace-nowrap">
+                            <i class="fa-solid fa-magnifying-glass-chart"></i> OSINT Search & Compare
+                        </button>
+                        <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-2 whitespace-nowrap">
+                            <i class="fa-solid fa-chart-line"></i> Price Analytics
+                        </button>
+                        <button onclick="switchTab('alerts')" id="tab-alerts" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-2 whitespace-nowrap">
+                            <i class="fa-solid fa-bell"></i> Alerts & Export
+                            <span id="alert-badge" class="px-1.5 py-0.2 text-[10px] bg-amber-500 text-slate-950 font-bold rounded-full">2</span>
+                        </button>
+                        <button onclick="switchTab('methodology')" id="tab-methodology" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-2 whitespace-nowrap">
+                            <i class="fa-solid fa-shield-halved"></i> Workflow & Ethics
+                        </button>
+                    </nav>
+
+                    <!-- Desktop Live Scraper Simulation Button -->
+                    <button onclick="simulateScraperRun()" class="hidden md:flex items-center gap-2 px-3.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 rounded-xl text-xs font-semibold transition cursor-pointer group" title="Simulate Step 1: Collect live listing from public automotive sources">
+                        <span class="relative flex h-2 w-2 pulse-dot">
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                        </span>
+                        <span>Simulate Scraper Run</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Toast Notification Banner (Replaces alert()) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- =====================================================================
+             VIEW 1: OSINT SEARCH & COMPARE DASHBOARD
+             ===================================================================== -->
+        <section id="view-search" class="space-y-6">
+            
+            <!-- Search & Filter Control Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl">
+                <div class="flex flex-col lg:flex-row gap-4">
+                    <!-- Main Query Input -->
+                    <div class="flex-grow relative">
+                        <label for="search-input" class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">
+                            Search Part Name, OEM Number, Manufacturer, or Vehicle (Make / Model / Year)
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </div>
+                            <input type="text" id="search-input" oninput="filterListings()" 
+                                placeholder="e.g., 27060-0V010, Bosch Brake Pad, Toyota Camry 2015, BMW F30..." 
+                                class="w-full pl-10 pr-10 py-3 bg-slate-950 border border-slate-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl text-sm text-white placeholder-slate-500 outline-none transition">
+                            <button onclick="clearSearch()" id="clear-search-btn" class="hidden absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-white">
+                                <i class="fa-solid fa-circle-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Condition Filter -->
+                    <div class="w-full lg:w-48">
+                        <label for="condition-filter" class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Condition</label>
+                        <select id="condition-filter" onchange="filterListings()" class="w-full px-3 py-3 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl text-sm text-slate-200 outline-none">
+                            <option value="ALL">All Conditions</option>
+                            <option value="New OEM">New OEM</option>
+                            <option value="Aftermarket">Aftermarket</option>
+                            <option value="Used / Salvage">Used / Salvage</option>
+                        </select>
+                    </div>
+
+                    <!-- Source Marketplace Filter -->
+                    <div class="w-full lg:w-52">
+                        <label for="source-filter" class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Source Platform</label>
+                        <select id="source-filter" onchange="filterListings()" class="w-full px-3 py-3 bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl text-sm text-slate-200 outline-none">
+                            <option value="ALL">All OSINT Sources</option>
+                            <option value="PartsSouq">PartsSouq</option>
+                            <option value="RockAuto">RockAuto</option>
+                            <option value="AutoDoc">AutoDoc</option>
+                            <option value="eBay Motors">eBay Motors</option>
+                            <option value="Local Classifieds">Local Classifieds</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Quick Search Tags & Deduplication Toggle -->
+                <div class="mt-4 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs text-slate-500 font-medium">Quick Queries:</span>
+                        <button onclick="applyQuickSearch('27060-0V010')" class="px-2.5 py-1 text-xs font-mono bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-lg border border-slate-700 transition">27060-0V010 (Alternator)</button>
+                        <button onclick="applyQuickSearch('0986494019')" class="px-2.5 py-1 text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition">0986494019 (Bosch Pads)</button>
+                        <button onclick="applyQuickSearch('31126852991')" class="px-2.5 py-1 text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition">BMW F30 Control Arm</button>
+                        <button onclick="applyQuickSearch('IK20TT')" class="px-2.5 py-1 text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition">Denso IK20TT</button>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <!-- Deduplication Toggle -->
+                        <label class="inline-flex items-center cursor-pointer select-none">
+                            <input type="checkbox" id="dedupe-toggle" onchange="filterListings()" class="sr-only peer">
+                            <div class="relative w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                            <span class="ms-2.5 text-xs font-medium text-slate-300">Group Duplicate OEMs</span>
+                        </label>
+
+                        <!-- Export CSV Button -->
+                        <button onclick="exportToCSV()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-file-csv text-emerald-400"></i> Export CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Price Comparison Analytics Bar -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Lowest Observed</p>
+                        <p id="stat-lowest" class="text-2xl font-bold text-emerald-400 font-mono mt-1">$0.00</p>
+                        <p id="stat-lowest-src" class="text-[11px] text-slate-500 mt-0.5 truncate max-w-[150px]">--</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-arrow-trend-down"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Market Median</p>
+                        <p id="stat-median" class="text-2xl font-bold text-amber-400 font-mono mt-1">$0.00</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Benchmark fair value</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Highest Observed</p>
+                        <p id="stat-highest" class="text-2xl font-bold text-rose-400 font-mono mt-1">$0.00</p>
+                        <p id="stat-highest-src" class="text-[11px] text-slate-500 mt-0.5 truncate max-w-[150px]">--</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-arrow-trend-up"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Matched Listings</p>
+                        <p id="stat-count" class="text-2xl font-bold text-sky-400 font-mono mt-1">0</p>
+                        <p id="stat-duplicates" class="text-[11px] text-slate-500 mt-0.5">0 OEM clusters detected</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-database"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Table Container -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900/50">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-sm font-semibold text-white">Aggregated OSINT Spare Parts Intelligence</h2>
+                        <span id="active-filter-badge" class="px-2 py-0.5 text-[11px] bg-slate-800 text-slate-300 rounded-md">Showing All</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-slate-400">
+                        <span>Sort by:</span>
+                        <select id="sort-select" onchange="filterListings()" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 outline-none">
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                            <option value="recent">Last Observed (Newest)</option>
+                            <option value="oem">OEM Part Number</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-[11px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-950/60">
+                                <th class="py-3.5 px-4">Spare Part & OEM Code</th>
+                                <th class="py-3.5 px-4">Vehicle Compatibility</th>
+                                <th class="py-3.5 px-4">Condition</th>
+                                <th class="py-3.5 px-4">Price</th>
+                                <th class="py-3.5 px-4">Seller & Source OSINT</th>
+                                <th class="py-3.5 px-4">Last Observed</th>
+                                <th class="py-3.5 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listings-tbody" class="divide-y divide-slate-800/70 text-sm">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State -->
+                <div id="empty-state" class="hidden py-12 px-4 text-center">
+                    <div class="w-14 h-14 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3 text-xl">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </div>
+                    <h3 class="text-base font-semibold text-white">No matching spare parts found</h3>
+                    <p class="text-xs text-slate-400 max-w-md mx-auto mt-1">Try broadening your OEM part number, removing marketplace filters, or clicking "Simulate Scraper Run" to ingest new records.</p>
+                    <button onclick="clearSearch()" class="mt-4 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs rounded-xl transition">Reset All Filters</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- =====================================================================
+             VIEW 2: PRICE HISTORY & ANALYTICS
+             ===================================================================== -->
+        <section id="view-analytics" class="hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-chart-area text-amber-400"></i> Longitudinal Price Movement & Seller Variance
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">Tracks historical price observations from First Seen date to Last Observed timestamp across multiple marketplaces.</p>
+                    </div>
+                    <div class="w-full md:w-72">
+                        <label class="block text-[11px] uppercase tracking-wider text-slate-400 mb-1">Select OEM Cluster to Inspect</label>
+                        <select id="analytics-oem-select" onchange="renderAnalyticsChart()" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Canvas Chart Container -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                    <div class="relative w-full h-72 sm:h-80">
+                        <canvas id="analytics-canvas" class="w-full h-full block"></canvas>
+                    </div>
+                </div>
+
+                <!-- Cross-Marketplace Breakdown for Selected OEM -->
+                <div class="mt-6">
+                    <h3 class="text-sm font-semibold text-white mb-3">Cross-Source Seller Comparison for Selected OEM</h3>
+                    <div id="analytics-cards" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =====================================================================
+             VIEW 3: TRACKED ALERTS & REPORTS
+             ===================================================================== -->
+        <section id="view-alerts" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Create New Alert Form -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl h-fit">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2 mb-1">
+                        <i class="fa-solid fa-bell text-amber-400"></i> Create OSINT Watchlist Alert
+                    </h2>
+                    <p class="text-xs text-slate-400 mb-4">Receive automated notifications when a tracked OEM drops below your target price or appears on new marketplaces.</p>
+                    
+                    <form onsubmit="addCustomAlert(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">OEM Part Number or Keyword</label>
+                            <input type="text" id="alert-oem-input" required placeholder="e.g., 27060-0V010" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Part Label / Description</label>
+                            <input type="text" id="alert-name-input" required placeholder="e.g., Camry 2.5L Alternator" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Target Alert Threshold ($ USD)</label>
+                            <input type="number" id="alert-price-input" required min="1" step="0.01" placeholder="e.g., 145.00" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-amber-500">
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm rounded-xl transition shadow-lg shadow-amber-500/10">
+                            <i class="fa-solid fa-plus mr-1"></i> Activate Price Monitor
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Active Watchlist & Intelligence Reports -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h2 class="text-base font-bold text-white">Active OSINT Watchlist Monitors</h2>
+                                <p class="text-xs text-slate-400">Real-time trigger status against current scraped dataset.</p>
+                            </div>
+                            <button onclick="exportToCSV()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition w-fit">
+                                <i class="fa-solid fa-download"></i> Export Full Dataset (CSV)
+                            </button>
+                        </div>
+
+                        <div id="alerts-list" class="space-y-3">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =====================================================================
+             VIEW 4: PROJECT SPECIFICATION & OSINT METHODOLOGY
+             ===================================================================== -->
+        <section id="view-methodology" class="hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl">
+                <div class="max-w-3xl">
+                    <span class="px-2.5 py-1 text-xs font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-lg">SYSTEM ARCHITECTURE & ETHICS</span>
+                    <h2 class="text-2xl font-bold text-white mt-3">Automotive Spare Parts OSINT Methodology</h2>
+                    <p class="text-sm text-slate-400 mt-2 leading-relaxed">
+                        The Automotive Spare Parts OSINT Tool centralizes publicly available listing metadata across online auto stores, salvage classifieds, and authorized catalogs—enabling mechanics, fleet operators, and researchers to verify OEM compatibility and benchmark market prices.
+                    </p>
+                </div>
+
+                <!-- 4-Step Pipeline Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-5 relative overflow-hidden">
+                        <div class="text-3xl font-black text-slate-800 absolute top-3 right-4">01</div>
+                        <div class="w-9 h-9 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center mb-3">
+                            <i class="fa-solid fa-spider"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-white">Step 1: Collect Information</h3>
+                        <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Gathers structured listings from public automotive marketplaces, online catalogs, and permitted APIs while respecting rate limits and <code class="text-slate-300">robots.txt</code>.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-5 relative overflow-hidden">
+                        <div class="text-3xl font-black text-slate-800 absolute top-3 right-4">02</div>
+                        <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3">
+                            <i class="fa-solid fa-server"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-white">Step 2: Organize the Data</h3>
+                        <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Normalizes unstructured ad text into standardized database fields: OEM Part Number, Manufacturer, Condition, Seller Public Contact, Timestamp, and Source URL.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-5 relative overflow-hidden">
+                        <div class="text-3xl font-black text-slate-800 absolute top-3 right-4">03</div>
+                        <div class="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center mb-3">
+                            <i class="fa-solid fa-code-compare"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-white">Step 3: Compare Listings</h3>
+                        <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Identifies duplicate or cross-listed parts via OEM code clustering, computes Lowest/Median/Highest price benchmarks, and tracks longitudinal price changes.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-5 relative overflow-hidden">
+                        <div class="text-3xl font-black text-slate-800 absolute top-3 right-4">04</div>
+                        <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-3">
+                            <i class="fa-solid fa-desktop"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-white">Step 4: Display Results</h3>
+                        <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Delivers actionable intelligence via an interactive dashboard with instant filtering, side-by-side duplicate inspection, price drop alerts, and CSV export.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Privacy, Reliability & Limitations -->
+                <div class="mt-8 bg-slate-950/80 border border-amber-500/20 rounded-xl p-5 flex flex-col sm:flex-row gap-4 items-start">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <i class="fa-solid fa-scale-balanced text-lg"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">Privacy, Reliability & OSINT Governance</h4>
+                        <p class="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                            This system strictly indexes publicly accessible commercial listings and authorized data feeds. Because third-party marketplace listings may contain outdated prices or incomplete fitment notes, every record preserves its <strong class="text-slate-200">First Seen</strong> and <strong class="text-slate-200">Last Observed</strong> timestamps alongside a direct link to the original source advertisement for human verification.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- =====================================================================
+         MODAL: LISTING OSINT DOSSIER, PRICE HISTORY & DUPLICATE COMPARISON
+         ===================================================================== -->
+    <div id="dossier-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Backdrop -->
+            <div onclick="closeModal()" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal Panel -->
+            <div class="relative inline-block align-bottom bg-slate-900 border border-slate-700 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl w-full">
+                <!-- Modal Header -->
+                <div class="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <span class="px-2 py-0.5 text-[11px] font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded">OSINT DOSSIER</span>
+                        <h3 id="modal-oem" class="text-base font-mono font-bold text-white">OEM: --</h3>
+                    </div>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-white p-1 rounded-lg transition">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="p-6 space-y-6">
+                    <!-- Top Summary Grid -->
+                    <div class="flex flex-col sm:flex-row justify-between gap-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                        <div>
+                            <h4 id="modal-title" class="text-lg font-bold text-white">--</h4>
+                            <p id="modal-vehicle" class="text-xs text-slate-400 mt-1">--</p>
+                            <div class="flex flex-wrap items-center gap-2 mt-3">
+                                <span id="modal-condition" class="px-2.5 py-0.5 text-xs font-medium rounded-full">--</span>
+                                <span id="modal-source" class="px-2.5 py-0.5 text-xs font-medium bg-slate-800 text-slate-300 rounded-full">--</span>
+                                <span id="modal-confidence" class="px-2.5 py-0.5 text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">OEM Match: 98%</span>
+                            </div>
+                        </div>
+                        <div class="sm:text-right flex flex-col justify-between">
+                            <div>
+                                <span class="text-[11px] uppercase tracking-wider text-slate-400">Current Listing Price</span>
+                                <div id="modal-price" class="text-3xl font-bold font-mono text-amber-400">$0.00</div>
+                            </div>
+                            <div class="text-[11px] text-slate-400 mt-2">
+                                First Seen: <span id="modal-first-seen" class="text-slate-300 font-mono">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Seller OSINT Metadata -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-slate-950/50 border border-slate-800 rounded-xl p-4">
+                            <h5 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Seller & Public Contact OSINT</h5>
+                            <p id="modal-seller" class="text-sm font-semibold text-white">--</p>
+                            <p id="modal-contact" class="text-xs text-slate-400 mt-1 font-mono">--</p>
+                            <p id="modal-desc" class="text-xs text-slate-300 mt-2.5 leading-relaxed">--</p>
+                        </div>
+
+                        <!-- Historical Price Trend Canvas -->
+                        <div class="bg-slate-950/50 border border-slate-800 rounded-xl p-4 flex flex-col">
+                            <div class="flex items-center justify-between mb-2">
+                                <h5 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Observed Price History</h5>
+                                <span id="modal-price-delta" class="text-[11px] font-mono">--</span>
+                            </div>
+                            <div class="relative flex-grow min-h-[120px]">
+                                <canvas id="modal-chart-canvas" class="w-full h-full block"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Duplicate / Cross-Marketplace Matches Section -->
+                    <div>
+                        <h5 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-2">
+                            <i class="fa-solid fa-clone text-amber-400"></i> Cross-Marketplace Listings for Same OEM Number
+                        </h5>
+                        <div id="modal-duplicates-list" class="space-y-2 max-h-44 overflow-y-auto pr-1">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer Actions -->
+                <div class="px-6 py-4 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <button id="modal-track-btn" onclick="trackCurrentModalPart()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-bell"></i> Track Price Alert for this OEM
+                    </button>
+                    <div class="flex items-center gap-2 justify-end">
+                        <button onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition">Close</button>
+                        <a id="modal-external-link" href="#" target="_blank" rel="noopener noreferrer" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+                            Open Original Listing <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-4 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <p>Automotive Spare Parts OSINT Tool &bull; Public Intelligence Aggregation Prototype</p>
+            <p class="font-mono">Ethical OSINT Mode: Active &bull; Rate-Limited Public Sources Only</p>
+        </div>
+    </footer>
+
+    <!-- =====================================================================
+         JAVASCRIPT LOGIC: DATA STORE, ANALYTICS, DEDUPLICATION, CHARTS & CSV
+         ===================================================================== -->
+    <script>
+        // 1. INITIAL OSINT DATASET (Realistic multi-source automotive listings)
+        let listingsData = [
+            {
+                id: "OSINT-1001",
+                partName: "Toyota OEM Denso Alternator Assembly 100A",
+                manufacturer: "Toyota / Denso",
+                oemNumber: "27060-0V010",
+                vehicle: "Toyota Camry 2.5L (2012-2017), RAV4 (2009-2012)",
+                condition: "New OEM",
+                price: 189.50,
+                seller: "PartsSouq Official Warehouse",
+                contact: "Public Catalog ID #PS-8841 | Verified Exporter",
+                source: "PartsSouq",
+                firstSeen: "2026-09-14",
+                lastObserved: "12 mins ago",
+                timestamp: Date.now() - 12 * 60000,
+                confidence: 99,
+                url: "https://partssouq.com/en/search/all?q=27060-0V010",
+                description: "Genuine factory Toyota alternator unit 27060-0V010. Sealed OEM packaging with pulley attached.",
+                priceHistory: [
+                    { date: "Sep 14", price: 210.00 },
+                    { date: "Oct 02", price: 205.00 },
+                    { date: "Oct 25", price: 195.00 },
+                    { date: "Nov 10", price: 192.00 },
+                    { date: "Nov 23", price: 189.50 }
+                ]
+            },
+            {
+                id: "OSINT-1002",
+                partName: "2015 Camry 2.5L OEM Alternator Tested Good",
+                manufacturer: "Denso (OEM Pull)",
+                oemNumber: "27060-0V010",
+                vehicle: "Toyota Camry LE/SE 2.5L (2012-2017)",
+                condition: "Used / Salvage",
+                price: 78.00,
+                seller: "Midwest Auto Dismantlers LLC",
+                contact: "Tel: +1 (555) 234-8910 | eBay Storefront",
+                source: "eBay Motors",
+                firstSeen: "2026-10-18",
+                lastObserved: "28 mins ago",
+                timestamp: Date.now() - 28 * 60000,
+                confidence: 94,
+                url: "https://www.ebay.com/sch/i.html?_nkw=27060-0V010",
+                description: "Removed from low-mileage 2015 Camry (54k miles). Bench tested at 14.2V output. Clean housing.",
+                priceHistory: [
+                    { date: "Oct 18", price: 95.00 },
+                    { date: "Nov 01", price: 85.00 },
+                    { date: "Nov 15", price: 85.00 },
+                    { date: "Nov 23", price: 78.00 }
+                ]
+            },
+            {
+                id: "OSINT-1003",
+                partName: "TYC 2-11402 Direct Replacement Alternator",
+                manufacturer: "TYC Aftermarket",
+                oemNumber: "27060-0V010",
+                vehicle: "Toyota Camry 2.5L (2012-2017)",
+                condition: "Aftermarket",
+                price: 124.75,
+                seller: "RockAuto Parts Network",
+                contact: "Catalog Ref #RA-11402 | Public API Feed",
+                source: "RockAuto",
+                firstSeen: "2026-08-30",
+                lastObserved: "1 hour ago",
+                timestamp: Date.now() - 60 * 60000,
+                confidence: 96,
+                url: "https://www.rockauto.com/",
+                description: "100% new aftermarket replacement compatible with OEM 27060-0V010. No core charge required.",
+                priceHistory: [
+                    { date: "Aug 30", price: 119.00 },
+                    { date: "Sep 20", price: 122.50 },
+                    { date: "Oct 15", price: 124.75 },
+                    { date: "Nov 23", price: 124.75 }
+                ]
+            },
+            {
+                id: "OSINT-1004",
+                partName: "Bosch QuietCast Premium Front Disc Brake Pad Set",
+                manufacturer: "Bosch",
+                oemNumber: "0986494019",
+                vehicle: "VW Golf Mk6/Mk7, Audi A3 (2010-2018)",
+                condition: "Aftermarket",
+                price: 46.90,
+                seller: "AutoDoc EU Logistics",
+                contact: "Public Merchant ID #AD-494019",
+                source: "AutoDoc",
+                firstSeen: "2026-09-05",
+                lastObserved: "19 mins ago",
+                timestamp: Date.now() - 19 * 60000,
+                confidence: 99,
+                url: "https://www.autodoc.co.uk/",
+                description: "Bosch low-dust ceramic compound front axle brake pad set with wear sensor lead.",
+                priceHistory: [
+                    { date: "Sep 05", price: 54.00 },
+                    { date: "Oct 01", price: 51.20 },
+                    { date: "Nov 03", price: 48.50 },
+                    { date: "Nov 23", price: 46.90 }
+                ]
+            },
+            {
+                id: "OSINT-1005",
+                partName: "Bosch Front Brake Pads 0 986 494 019 New Boxed",
+                manufacturer: "Bosch",
+                oemNumber: "0986494019",
+                vehicle: "Volkswagen Golf / Jetta / Audi A3",
+                condition: "Aftermarket",
+                price: 52.00,
+                seller: "EuroGarage Surplus",
+                contact: "WhatsApp Public Ad: +973 3900-4412",
+                source: "Local Classifieds",
+                firstSeen: "2026-11-12",
+                lastObserved: "2 hours ago",
+                timestamp: Date.now() - 120 * 60000,
+                confidence: 95,
+                url: "https://example.com/classifieds/bosch-0986494019",
+                description: "Unopened Bosch brake pad box bought for Golf GTI, sold car before installation.",
+                priceHistory: [
+                    { date: "Nov 12", price: 60.00 },
+                    { date: "Nov 18", price: 55.00 },
+                    { date: "Nov 23", price: 52.00 }
+                ]
+            },
+            {
+                id: "OSINT-1006",
+                partName: "BMW Genuine Front Lower Wishbone Control Arm",
+                manufacturer: "BMW / Lemförder",
+                oemNumber: "31126852991",
+                vehicle: "BMW 3 Series F30 / F31 / 4 Series F32 (2012-2019)",
+                condition: "New OEM",
+                price: 142.00,
+                seller: "PartsSouq Official Warehouse",
+                contact: "Public Catalog ID #PS-3112",
+                source: "PartsSouq",
+                firstSeen: "2026-09-22",
+                lastObserved: "42 mins ago",
+                timestamp: Date.now() - 42 * 60000,
+                confidence: 99,
+                url: "https://partssouq.com/en/search/all?q=31126852991",
+                description: "Original BMW left front lower control arm with hydraulic bushing pre-installed.",
+                priceHistory: [
+                    { date: "Sep 22", price: 158.00 },
+                    { date: "Oct 14", price: 149.00 },
+                    { date: "Nov 05", price: 145.00 },
+                    { date: "Nov 23", price: 142.00 }
+                ]
+            },
+            {
+                id: "OSINT-1007",
+                partName: "Lemforder OE Control Arm 31126852991 BMW F30",
+                manufacturer: "Lemförder",
+                oemNumber: "31126852991",
+                vehicle: "BMW 320i / 328i / 335i F30 (2012-2018)",
+                condition: "Aftermarket",
+                price: 94.30,
+                seller: "AutoDoc EU Logistics",
+                contact: "Public Merchant ID #AD-311268",
+                source: "AutoDoc",
+                firstSeen: "2026-10-01",
+                lastObserved: "3 hours ago",
+                timestamp: Date.now() - 180 * 60000,
+                confidence: 97,
+                url: "https://www.autodoc.co.uk/",
+                description: "OE supplier Lemforder aluminum tension strut arm matching BMW OEM 31126852991.",
+                priceHistory: [
+                    { date: "Oct 01", price: 102.00 },
+                    { date: "Oct 29", price: 98.00 },
+                    { date: "Nov 23", price: 94.30 }
+                ]
+            },
+            {
+                id: "OSINT-1008",
+                partName: "Denso Iridium TT Spark Plug (Set of 4)",
+                manufacturer: "Denso",
+                oemNumber: "IK20TT",
+                vehicle: "Universal 4-Cyl Fitment (Honda, Toyota, Mazda, VW)",
+                condition: "New OEM",
+                price: 34.80,
+                seller: "RockAuto Parts Network",
+                contact: "Catalog Ref #RA-IK20TT",
+                source: "RockAuto",
+                firstSeen: "2026-08-15",
+                lastObserved: "50 mins ago",
+                timestamp: Date.now() - 50 * 60000,
+                confidence: 99,
+                url: "https://www.rockauto.com/",
+                description: "0.4mm Twin-Tip iridium center electrode spark plugs for improved ignitability and fuel economy.",
+                priceHistory: [
+                    { date: "Aug 15", price: 36.00 },
+                    { date: "Oct 10", price: 35.20 },
+                    { date: "Nov 23", price: 34.80 }
+                ]
+            },
+            {
+                id: "OSINT-1009",
+                partName: "NGK Direct Ignition Coil Pack U5055",
+                manufacturer: "NGK",
+                oemNumber: "U5055",
+                vehicle: "Honda Civic 1.8L (2006-2011), Accord, CR-V",
+                condition: "New OEM",
+                price: 41.25,
+                seller: "Apex Ignition Supply",
+                contact: "eBay Top-Rated Seller | Public Business #APX-99",
+                source: "eBay Motors",
+                firstSeen: "2026-10-09",
+                lastObserved: "4 hours ago",
+                timestamp: Date.now() - 240 * 60000,
+                confidence: 98,
+                url: "https://www.ebay.com/sch/i.html?_nkw=NGK+U5055",
+                description: "Genuine NGK pencil-type ignition coil manufactured to OE electrical resistance specs.",
+                priceHistory: [
+                    { date: "Oct 09", price: 45.00 },
+                    { date: "Nov 02", price: 42.50 },
+                    { date: "Nov 23", price: 41.25 }
+                ]
+            }
+        ];
+
+        // 2. USER WATCHLIST ALERTS STATE
+        let userAlerts = [
+            {
+                id: "ALT-1",
+                oemNumber: "27060-0V010",
+                partName: "Toyota Camry 2.5L Alternator",
+                targetPrice: 190.00,
+                active: true
+            },
+            {
+                id: "ALT-2",
+                oemNumber: "31126852991",
+                partName: "BMW F30 Lower Control Arm",
+                targetPrice: 90.00,
+                active: true
+            }
+        ];
+
+        let currentModalPart = null;
+
+        // 3. INITIALIZATION ON WINDOW LOAD
+        window.onload = function () {
+            filterListings();
+            populateAnalyticsDropdown();
+            renderAlertsList();
+        };
+
+        // 4. TAB NAVIGATION SWITCHING
+        function switchTab(tabName) {
+            const views = ['search', 'analytics', 'alerts', 'methodology'];
+            views.forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+                const btn = document.getElementById(`tab-${v}`);
+                btn.classList.remove('bg-slate-800', 'text-amber-400', 'shadow-sm');
+                btn.classList.add('text-slate-400');
+            });
+
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.classList.add('bg-slate-800', 'text-amber-400', 'shadow-sm');
+            activeBtn.classList.remove('text-slate-400');
+
+            if (tabName === 'analytics') {
+                renderAnalyticsChart();
+            } else if (tabName === 'alerts') {
+                renderAlertsList();
+            }
+        }
+
+        // 5. SEARCH, FILTER, DEDUPLICATION & ANALYTICS BAR CALCULATION
+        function applyQuickSearch(term) {
+            const input = document.getElementById('search-input');
+            input.value = term;
+            filterListings();
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('condition-filter').value = 'ALL';
+            document.getElementById('source-filter').value = 'ALL';
+            document.getElementById('dedupe-toggle').checked = false;
+            filterListings();
+        }
+
+        function getFilteredData() {
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            const condition = document.getElementById('condition-filter').value;
+            const source = document.getElementById('source-filter').value;
+            const sortBy = document.getElementById('sort-select').value;
+
+            // Toggle clear button visibility
+            const clearBtn = document.getElementById('clear-search-btn');
+            if (query.length > 0) clearBtn.classList.remove('hidden');
+            else clearBtn.classList.add('hidden');
+
+            let filtered = listingsData.filter(item => {
+                const matchesQuery = !query || 
+                    item.partName.toLowerCase().includes(query) ||
+                    item.oemNumber.toLowerCase().includes(query) ||
+                    item.manufacturer.toLowerCase().includes(query) ||
+                    item.vehicle.toLowerCase().includes(query) ||
+                    item.seller.toLowerCase().includes(query);
+
+                const matchesCondition = condition === 'ALL' || item.condition === condition;
+                const matchesSource = source === 'ALL' || item.source === source;
+
+                return matchesQuery && matchesCondition && matchesSource;
+            });
+
+            // Sorting
+            filtered.sort((a, b) => {
+                if (sortBy === 'price-asc') return a.price - b.price;
+                if (sortBy === 'price-desc') return b.price - a.price;
+                if (sortBy === 'recent') return b.timestamp - a.timestamp;
+                if (sortBy === 'oem') return a.oemNumber.localeCompare(b.oemNumber);
+                return 0;
+            });
+
+            return filtered;
+        }
+
+        function filterListings() {
+            const rawFiltered = getFilteredData();
+            const groupDuplicates = document.getElementById('dedupe-toggle').checked;
+
+            // Count OEM occurrences across full dataset to flag cross-listed duplicates
+            const oemCounts = {};
+            listingsData.forEach(item => {
+                oemCounts[item.oemNumber] = (oemCounts[item.oemNumber] || 0) + 1;
+            });
+
+            // Update Analytics Bar based on rawFiltered
+            updateAnalyticsBar(rawFiltered, oemCounts);
+
+            // Optionally group duplicates by OEM Number (keeping lowest price representative)
+            let displayList = rawFiltered;
+            if (groupDuplicates) {
+                const seenOems = new Set();
+                displayList = [];
+                // Sort ascending by price first so representative is best deal
+                const sortedByPrice = [...rawFiltered].sort((a, b) => a.price - b.price);
+                sortedByPrice.forEach(item => {
+                    if (!seenOems.has(item.oemNumber)) {
+                        seenOems.add(item.oemNumber);
+                        displayList.push(item);
+                    }
+                });
+            }
+
+            renderListingsTable(displayList, oemCounts, groupDuplicates);
+        }
+
+        function updateAnalyticsBar(items, oemCounts) {
+            const lowestEl = document.getElementById('stat-lowest');
+            const lowestSrcEl = document.getElementById('stat-lowest-src');
+            const medianEl = document.getElementById('stat-median');
+            const highestEl = document.getElementById('stat-highest');
+            const highestSrcEl = document.getElementById('stat-highest-src');
+            const countEl = document.getElementById('stat-count');
+            const dupEl = document.getElementById('stat-duplicates');
+
+            if (items.length === 0) {
+                lowestEl.textContent = "$0.00";
+                lowestSrcEl.textContent = "No data";
+                medianEl.textContent = "$0.00";
+                highestEl.textContent = "$0.00";
+                highestSrcEl.textContent = "No data";
+                countEl.textContent = "0";
+                dupEl.textContent = "0 OEM clusters";
+                return;
+            }
+
+            const sortedPrices = [...items].sort((a, b) => a.price - b.price);
+            const lowest = sortedPrices[0];
+            const highest = sortedPrices[sortedPrices.length - 1];
+
+            // Calculate Median
+            const mid = Math.floor(sortedPrices.length / 2);
+            const median = sortedPrices.length % 2 !== 0
+                ? sortedPrices[mid].price
+                : (sortedPrices[mid - 1].price + sortedPrices[mid].price) / 2;
+
+            // Count unique OEM clusters in current view
+            const uniqueOems = new Set(items.map(i => i.oemNumber));
+            const multiSourceClusters = [...uniqueOems].filter(oem => (oemCounts[oem] || 0) > 1).length;
+
+            lowestEl.textContent = `$${lowest.price.toFixed(2)}`;
+            lowestSrcEl.textContent = `${lowest.source} (${lowest.condition})`;
+            medianEl.textContent = `$${median.toFixed(2)}`;
+            highestEl.textContent = `$${highest.price.toFixed(2)}`;
+            highestSrcEl.textContent = `${highest.source} (${highest.condition})`;
+            countEl.textContent = items.length;
+            dupEl.textContent = `${multiSourceClusters} cross-listed OEM cluster${multiSourceClusters === 1 ? '' : 's'}`;
+        }
+
+        function renderListingsTable(items, oemCounts, isGrouped) {
+            const tbody = document.getElementById('listings-tbody');
+            const emptyState = document.getElementById('empty-state');
+            const badge = document.getElementById('active-filter-badge');
+
+            badge.textContent = isGrouped 
+                ? `Grouped: ${items.length} Unique OEMs` 
+                : `Showing ${items.length} Listing${items.length === 1 ? '' : 's'}`;
+
+            if (items.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            tbody.innerHTML = items.map(item => {
+                const clusterSize = oemCounts[item.oemNumber] || 1;
+                const conditionBadge = getConditionBadgeHTML(item.condition);
+                const duplicateBadge = clusterSize > 1 
+                    ? `<button onclick="openDossierModal('${item.id}')" class="mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded hover:bg-amber-500/25 transition" title="Click to compare duplicate listings across sources">
+                        <i class="fa-solid fa-clone"></i> ${clusterSize} Listings Matched
+                       </button>`
+                    : '';
+
+                return `
+                    <tr class="hover:bg-slate-800/40 transition group">
+                        <td class="py-4 px-4 align-top">
+                            <div class="font-semibold text-white group-hover:text-amber-400 transition cursor-pointer" onclick="openDossierModal('${item.id}')">
+                                ${escapeHTML(item.partName)}
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 mt-1">
+                                <span class="text-xs font-mono px-2 py-0.5 bg-slate-950 text-sky-400 border border-slate-800 rounded">OEM: ${escapeHTML(item.oemNumber)}</span>
+                                <span class="text-xs text-slate-400">${escapeHTML(item.manufacturer)}</span>
+                            </div>
+                            ${duplicateBadge}
+                        </td>
+                        <td class="py-4 px-4 align-top text-xs text-slate-300 max-w-[200px]">
+                            ${escapeHTML(item.vehicle)}
+                        </td>
+                        <td class="py-4 px-4 align-top whitespace-nowrap">
+                            ${conditionBadge}
+                        </td>
+                        <td class="py-4 px-4 align-top whitespace-nowrap">
+                            <div class="text-base font-bold font-mono text-white">$${item.price.toFixed(2)}</div>
+                            <div class="text-[10px] text-slate-500">First seen ${item.firstSeen}</div>
+                        </td>
+                        <td class="py-4 px-4 align-top">
+                            <div class="text-xs font-medium text-slate-200">${escapeHTML(item.seller)}</div>
+                            <div class="inline-flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                <span>${escapeHTML(item.source)}</span>
+                            </div>
+                        </td>
+                        <td class="py-4 px-4 align-top whitespace-nowrap text-xs text-slate-400 font-mono">
+                            ${escapeHTML(item.lastObserved)}
+                        </td>
+                        <td class="py-4 px-4 align-top text-right whitespace-nowrap">
+                            <div class="flex items-center justify-end gap-2">
+                                <button onclick="openDossierModal('${item.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium transition" title="Inspect Price History & Seller OSINT">
+                                    <i class="fa-solid fa-chart-simple text-amber-400 mr-1"></i> Dossier
+                                </button>
+                                <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1.5 bg-slate-950 hover:bg-amber-500 hover:text-slate-950 text-slate-300 border border-slate-800 rounded-lg text-xs transition" title="Open Original Source URL">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getConditionBadgeHTML(condition) {
+            if (condition === 'New OEM') {
+                return `<span class="px-2.5 py-1 text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">New OEM</span>`;
+            } else if (condition === 'Aftermarket') {
+                return `<span class="px-2.5 py-1 text-[11px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-full">Aftermarket</span>`;
+            } else {
+                return `<span class="px-2.5 py-1 text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">Used / Salvage</span>`;
+            }
+        }
+
+        // 6. INTERACTIVE LISTING DOSSIER MODAL & DUPLICATE COMPARISON
+        function openDossierModal(partId) {
+            const item = listingsData.find(p => p.id === partId);
+            if (!item) return;
+            currentModalPart = item;
+
+            document.getElementById('modal-oem').textContent = `OEM: ${item.oemNumber}`;
+            document.getElementById('modal-title').textContent = item.partName;
+            document.getElementById('modal-vehicle').textContent = `Compatibility: ${item.vehicle}`;
+            document.getElementById('modal-price').textContent = `$${item.price.toFixed(2)}`;
+            document.getElementById('modal-first-seen').textContent = item.firstSeen;
+            document.getElementById('modal-source').textContent = `Source: ${item.source}`;
+            document.getElementById('modal-confidence').textContent = `OEM Match Confidence: ${item.confidence}%`;
+            document.getElementById('modal-seller').textContent = item.seller;
+            document.getElementById('modal-contact').textContent = item.contact;
+            document.getElementById('modal-desc').textContent = item.description;
+            document.getElementById('modal-external-link').href = item.url;
+
+            const condEl = document.getElementById('modal-condition');
+            condEl.textContent = item.condition;
+            condEl.className = 'px-2.5 py-0.5 text-xs font-semibold rounded-full ' + (
+                item.condition === 'New OEM' ? 'bg-emerald-500/15 text-emerald-400' :
+                item.condition === 'Aftermarket' ? 'bg-sky-500/15 text-sky-400' : 'bg-amber-500/15 text-amber-400'
+            );
+
+            // Calculate price delta from first seen
+            const firstPrice = item.priceHistory[0].price;
+            const diff = item.price - firstPrice;
+            const deltaEl = document.getElementById('modal-price-delta');
+            if (diff < 0) {
+                deltaEl.textContent = `▼ $${Math.abs(diff).toFixed(2)} since ${item.firstSeen}`;
+                deltaEl.className = 'text-[11px] font-mono text-emerald-400';
+            } else if (diff > 0) {
+                deltaEl.textContent = `▲ $${diff.toFixed(2)} since ${item.firstSeen}`;
+                deltaEl.className = 'text-[11px] font-mono text-rose-400';
+            } else {
+                deltaEl.textContent = `● Stable since ${item.firstSeen}`;
+                deltaEl.className = 'text-[11px] font-mono text-slate-400';
+            }
+
+            // Render Duplicate / Cross-Marketplace matches
+            const matches = listingsData.filter(p => p.oemNumber === item.oemNumber).sort((a, b) => a.price - b.price);
+            const dupListEl = document.getElementById('modal-duplicates-list');
+            dupListEl.innerHTML = matches.map(m => {
+                const isCurrent = m.id === item.id;
+                return `
+                    <div onclick="openDossierModal('${m.id}')" class="p-3 rounded-xl border ${isCurrent ? 'bg-amber-500/10 border-amber-500/40' : 'bg-slate-950 border-slate-800 hover:border-slate-700'} flex items-center justify-between gap-3 cursor-pointer transition">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-white truncate">${escapeHTML(m.partName)}</span>
+                                ${isCurrent ? '<span class="px-1.5 py-0.2 text-[10px] bg-amber-500 text-slate-950 font-bold rounded">Viewing</span>' : ''}
+                            </div>
+                            <div class="text-[11px] text-slate-400 mt-0.5">
+                                <span class="text-slate-300 font-medium">${escapeHTML(m.source)}</span> &bull; ${escapeHTML(m.condition)} &bull; ${escapeHTML(m.seller)}
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-sm font-bold font-mono ${m.price === matches[0].price ? 'text-emerald-400' : 'text-white'}">$${m.price.toFixed(2)}</div>
+                            <div class="text-[10px] text-slate-500">${m.lastObserved}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('dossier-modal').classList.remove('hidden');
+
+            // Draw price history chart after modal becomes visible
+            setTimeout(() => {
+                drawLineChart('modal-chart-canvas', [item], false);
+            }, 30);
+        }
+
+        function closeModal() {
+            document.getElementById('dossier-modal').classList.add('hidden');
+        }
+
+        function trackCurrentModalPart() {
+            if (!currentModalPart) return;
+            const exists = userAlerts.some(a => a.oemNumber === currentModalPart.oemNumber);
+            if (exists) {
+                showToast(`OEM ${currentModalPart.oemNumber} is already in your OSINT Watchlist.`, 'info');
+                return;
+            }
+            const target = Math.max(1, +(currentModalPart.price * 0.95).toFixed(2));
+            userAlerts.unshift({
+                id: `ALT-${Date.now()}`,
+                oemNumber: currentModalPart.oemNumber,
+                partName: currentModalPart.partName,
+                targetPrice: target,
+                active: true
+            });
+            updateAlertBadge();
+            showToast(`Alert created for ${currentModalPart.oemNumber} (Target: $${target.toFixed(2)})`, 'success');
+        }
+
+        // 7. ANALYTICS VIEW & HTML5 CANVAS CHARTING ENGINE
+        function populateAnalyticsDropdown() {
+            const select = document.getElementById('analytics-oem-select');
+            const uniqueOems = [...new Set(listingsData.map(i => i.oemNumber))];
+            select.innerHTML = uniqueOems.map(oem => {
+                const sample = listingsData.find(i => i.oemNumber === oem);
+                return `<option value="${oem}">${oem} — ${sample.partName.substring(0, 32)}...</option>`;
+            }).join('');
+        }
+
+        function renderAnalyticsChart() {
+            const selectedOem = document.getElementById('analytics-oem-select').value;
+            const cluster = listingsData.filter(i => i.oemNumber === selectedOem);
+            
+            drawLineChart('analytics-canvas', cluster, true);
+
+            // Render seller comparison cards below chart
+            const cardsEl = document.getElementById('analytics-cards');
+            cardsEl.innerHTML = cluster.map(item => `
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-400">${escapeHTML(item.source)}</span>
+                            ${getConditionBadgeHTML(item.condition)}
+                        </div>
+                        <h4 class="text-sm font-semibold text-white mt-2">${escapeHTML(item.partName)}</h4>
+                        <p class="text-xs text-slate-400 mt-1">${escapeHTML(item.seller)}</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] text-slate-500 block">Current Price</span>
+                            <span class="text-lg font-bold font-mono text-white">$${item.price.toFixed(2)}</span>
+                        </div>
+                        <button onclick="openDossierModal('${item.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded-lg transition">Inspect</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function drawLineChart(canvasId, seriesList, showLegend) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const parent = canvas.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+            const rect = parent.getBoundingClientRect();
+            
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            const width = rect.width;
+            const height = rect.height;
+            ctx.clearRect(0, 0, width, height);
+
+            if (!seriesList || seriesList.length === 0) return;
+
+            const colors = ['#f59e0b', '#38bdf8', '#10b981', '#f43f5e'];
+            const padLeft = 52;
+            const padRight = 20;
+            const padTop = showLegend ? 32 : 16;
+            const padBottom = 28;
+            const plotW = width - padLeft - padRight;
+            const plotH = height - padTop - padBottom;
+
+            // Gather all prices to determine Y bounds
+            let allPrices = [];
+            seriesList.forEach(s => s.priceHistory.forEach(pt => allPrices.push(pt.price)));
+            const minP = Math.min(...allPrices) * 0.92;
+            const maxP = Math.max(...allPrices) * 1.06;
+            const rangeP = Math.max(1, maxP - minP);
+
+            // Draw horizontal gridlines & Y labels
+            ctx.strokeStyle = 'rgba(51, 65, 85, 0.5)';
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px JetBrains Mono, monospace';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            const gridSteps = 4;
+            for (let i = 0; i <= gridSteps; i++) {
+                const val = minP + (rangeP * (i / gridSteps));
+                const y = padTop + plotH - (i / gridSteps) * plotH;
+                ctx.beginPath();
+                ctx.moveTo(padLeft, y);
+                ctx.lineTo(width - padRight, y);
+                ctx.stroke();
+                ctx.fillText(`$${val.toFixed(0)}`, padLeft - 8, y);
+            }
+
+            // Draw each series
+            seriesList.forEach((series, idx) => {
+                const color = colors[idx % colors.length];
+                const pts = series.priceHistory;
+                if (pts.length === 0) return;
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+
+                pts.forEach((pt, pIdx) => {
+                    const x = pts.length === 1 
+                        ? padLeft + plotW / 2 
+                        : padLeft + (pIdx / (pts.length - 1)) * plotW;
+                    const y = padTop + plotH - ((pt.price - minP) / rangeP) * plotH;
+                    if (pIdx === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                // Draw points & X-axis dates for first series
+                pts.forEach((pt, pIdx) => {
+                    const x = pts.length === 1 
+                        ? padLeft + plotW / 2 
+                        : padLeft + (pIdx / (pts.length - 1)) * plotW;
+                    const y = padTop + plotH - ((pt.price - minP) / rangeP) * plotH;
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    if (idx === 0) {
+                        ctx.fillStyle = '#94a3b8';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'top';
+                        ctx.fillText(pt.date, x, padTop + plotH + 8);
+                    }
+                });
+
+                // Legend item
+                if (showLegend) {
+                    const legX = padLeft + idx * 140;
+                    ctx.fillStyle = color;
+                    ctx.fillRect(legX, 8, 10, 10);
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.font = '11px Inter, sans-serif';
+                    ctx.fillText(`${series.source} ($${series.price.toFixed(0)})`, legX + 15, 7);
+                }
+            });
+        }
+
+        // Redraw analytics chart on window resize
+        window.addEventListener('resize', () => {
+            if (!document.getElementById('view-analytics').classList.contains('hidden')) {
+                renderAnalyticsChart();
+            }
+        });
+
+        // 8. WATCHLIST ALERTS MANAGEMENT
+        function addCustomAlert(e) {
+            e.preventDefault();
+            const oem = document.getElementById('alert-oem-input').value.trim().toUpperCase();
+            const name = document.getElementById('alert-name-input').value.trim();
+            const targetPrice = parseFloat(document.getElementById('alert-price-input').value);
+
+            if (!oem || !name || isNaN(targetPrice)) return;
+
+            userAlerts.unshift({
+                id: `ALT-${Date.now()}`,
+                oemNumber: oem,
+                partName: name,
+                targetPrice: targetPrice,
+                active: true
+            });
+
+            document.getElementById('alert-oem-input').value = '';
+            document.getElementById('alert-name-input').value = '';
+            document.getElementById('alert-price-input').value = '';
+
+            updateAlertBadge();
+            renderAlertsList();
+            showToast(`Watchlist monitor activated for OEM ${oem}`, 'success');
+        }
+
+        function removeAlert(id) {
+            userAlerts = userAlerts.filter(a => a.id !== id);
+            updateAlertBadge();
+            renderAlertsList();
+            showToast('Watchlist alert removed.', 'info');
+        }
+
+        function updateAlertBadge() {
+            document.getElementById('alert-badge').textContent = userAlerts.length;
+        }
+
+        function renderAlertsList() {
+            const container = document.getElementById('alerts-list');
+            if (userAlerts.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 py-6 text-center">No active OEM monitors. Add one on the left or click "Track Price Alert" inside any Part Dossier.</p>`;
+                return;
+            }
+
+            container.innerHTML = userAlerts.map(alert => {
+                // Check lowest current market price for this OEM
+                const matches = listingsData.filter(l => l.oemNumber.toUpperCase() === alert.oemNumber.toUpperCase());
+                const lowestMatch = matches.length > 0 ? matches.reduce((min, p) => p.price < min.price ? p : min, matches[0]) : null;
+                const triggered = lowestMatch && lowestMatch.price <= alert.targetPrice;
+
+                return `
+                    <div class="p-4 rounded-xl bg-slate-950 border ${triggered ? 'border-emerald-500/40' : 'border-slate-800'} flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-mono px-2 py-0.5 bg-slate-900 text-amber-400 border border-slate-700 rounded">${escapeHTML(alert.oemNumber)}</span>
+                                <h4 class="text-sm font-semibold text-white">${escapeHTML(alert.partName)}</h4>
+                                ${triggered 
+                                    ? `<span class="px-2 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 rounded-full">TARGET MET!</span>` 
+                                    : `<span class="px-2 py-0.5 text-[10px] font-medium bg-slate-800 text-slate-400 rounded-full">Monitoring</span>`}
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1.5">
+                                Target Threshold: <span class="font-mono text-white">$${alert.targetPrice.toFixed(2)}</span> &bull; 
+                                Current Best OSINT Match: ${lowestMatch 
+                                    ? `<span class="font-mono ${triggered ? 'text-emerald-400 font-bold' : 'text-slate-200'}">$${lowestMatch.price.toFixed(2)} (${lowestMatch.source})</span>` 
+                                    : `<span class="text-slate-500">No active listings yet</span>`}
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2 self-end sm:self-center">
+                            ${lowestMatch ? `<button onclick="openDossierModal('${lowestMatch.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 rounded-lg transition">View Match</button>` : ''}
+                            <button onclick="removeAlert('${alert.id}')" class="p-1.5 text-slate-500 hover:text-rose-400 transition" title="Delete Alert">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 9. SIMULATE LIVE OSINT SCRAPER RUN (STEP 1 -> STEP 4 PIPELINE)
+        const simulatedScrapes = [
+            {
+                partName: "Denso Remanufactured Alternator 27060-0V010",
+                manufacturer: "Denso",
+                oemNumber: "27060-0V010",
+                vehicle: "Toyota Camry 2.5L (2012-2017)",
+                condition: "Aftermarket",
+                price: 138.40,
+                seller: "AutoDoc EU Logistics",
+                contact: "Public Merchant ID #AD-27060",
+                source: "AutoDoc",
+                confidence: 97,
+                url: "https://www.autodoc.co.uk/",
+                description: "Factory-remanufactured Denso alternator unit matching Toyota OEM 27060-0V010.",
+                priceHistory: [{ date: "Nov 23", price: 138.40 }]
+            },
+            {
+                partName: "Mobil 1 Extended Performance 5W-30 Full Synthetic (5 Qt)",
+                manufacturer: "Mobil 1",
+                oemNumber: "M1-5W30-5QT",
+                vehicle: "Universal Gasoline / Turbocharged Engines",
+                condition: "New OEM",
+                price: 27.97,
+                seller: "National Auto Supply Feed",
+                contact: "Public Retail Catalog #M1-120760",
+                source: "RockAuto",
+                confidence: 99,
+                url: "https://www.rockauto.com/",
+                description: "API SP / ILSAC GF-6A full synthetic motor oil engineered for 20,000-mile protection.",
+                priceHistory: [{ date: "Nov 23", price: 27.97 }]
+            },
+            {
+                partName: "BMW F30 Control Arm 31126852991 Low-Mileage Salvage",
+                manufacturer: "BMW",
+                oemNumber: "31126852991",
+                vehicle: "BMW 328i F30 (2014)",
+                condition: "Used / Salvage",
+                price: 55.00,
+                seller: "Bavarian Salvage Yard",
+                contact: "Public Listing #BV-8812 | Tel: +1 (555) 892-1102",
+                source: "Local Classifieds",
+                confidence: 92,
+                url: "https://example.com/classifieds/bmw-f30-arm",
+                description: "Clean rust-free front lower control arm pulled from 2014 328i rear-end collision vehicle.",
+                priceHistory: [{ date: "Nov 23", price: 55.00 }]
+            }
+        ];
+        let simIndex = 0;
+
+        function simulateScraperRun() {
+            const template = simulatedScrapes[simIndex % simulatedScrapes.length];
+            simIndex++;
+
+            const newRecord = {
+                ...template,
+                id: `OSINT-${Math.floor(2000 + Math.random() * 7000)}`,
+                firstSeen: "2026-11-23",
+                lastObserved: "Just now",
+                timestamp: Date.now()
+            };
+
+            listingsData.unshift(newRecord);
+            filterListings();
+            populateAnalyticsDropdown();
+            renderAlertsList();
+
+            showToast(`OSINT Crawler Ingested: "${newRecord.partName}" ($${newRecord.price.toFixed(2)}) from ${newRecord.source}`, 'success');
+        }
+
+        // 10. CSV EXPORT GENERATOR
+        function exportToCSV() {
+            const data = getFilteredData();
+            if (data.length === 0) {
+                showToast('No records available to export.', 'info');
+                return;
+            }
+
+            const headers = [
+                "OSINT_ID", "Part_Name", "Manufacturer", "OEM_Number", 
+                "Vehicle_Compatibility", "Condition", "Price_USD", 
+                "Seller_Name", "Source_Platform", "First_Seen", "Last_Observed", "Source_URL"
+            ];
+
+            const rows = data.map(item => [
+                item.id,
+                `"${item.partName.replace(/"/g, '""')}"`,
+                `"${item.manufacturer.replace(/"/g, '""')}"`,
+                `"${item.oemNumber}"`,
+                `"${item.vehicle.replace(/"/g, '""')}"`,
+                `"${item.condition}"`,
+                item.price.toFixed(2),
+                `"${item.seller.replace(/"/g, '""')}"`,
+                `"${item.source}"`,
+                item.firstSeen,
+                `"${item.lastObserved}"`,
+                `"${item.url}"`
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `AutoParts_OSINT_Report_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast(`Exported ${data.length} OSINT spare parts records to CSV.`, 'success');
+        }
+
+        // 11. NON-INTRUSIVE TOAST NOTIFICATION SYSTEM
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const borderClass = type === 'success' ? 'border-emerald-500/50 bg-slate-900' : 'border-amber-500/50 bg-slate-900';
+            const iconHTML = type === 'success' 
+                ? '<i class="fa-solid fa-circle-check text-emerald-400"></i>' 
+                : '<i class="fa-solid fa-circle-info text-amber-400"></i>';
+
+            toast.className = `pointer-events-auto p-3.5 rounded-xl border ${borderClass} shadow-2xl flex items-start gap-3 text-xs text-slate-200 transform transition-all duration-300 translate-y-2 opacity-0`;
+            toast.innerHTML = `
+                <div class="mt-0.5 text-sm">${iconHTML}</div>
+                <div class="flex-grow leading-relaxed">${escapeHTML(message)}</div>
+            `;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Helper: XSS Protection
+        function escapeHTML(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
